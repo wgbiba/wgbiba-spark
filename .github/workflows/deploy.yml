@@ -1,0 +1,93 @@
+# GitHub Pages deployment workflow.
+#
+# Builds the static SPA with the correct base path for a project page
+# (https://<user>.github.io/<repo>/) and publishes the static output.
+#
+# Setup (one-time, in your fork):
+#   1. Push this file to your repo on the `main` branch.
+#   2. In Settings → Pages, set Source to "GitHub Actions".
+#   3. (Optional) For a user/org root site or custom domain, remove the
+#      VITE_BASE_PATH line below so the base resolves to "/".
+
+name: Deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build (with repo as base path)
+        env:
+          # ${{ github.event.repository.name }} resolves to the repo name,
+          # so the build works for any fork without manual edits.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+        run: bun run build
+
+      - name: Build report (artifacts + prerender + base path)
+        env:
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+        run: node scripts/build-report.mjs
+
+      - name: Promote SPA shell to index.html and verify
+        # TanStack Start's SPA mode emits dist/client/_shell.html.
+        # GitHub Pages serves /index.html as the directory entry, so we
+        # rename the shell. The 404.html SPA fallback is kept as-is for
+        # deep-link refreshes.
+        run: |
+          set -euo pipefail
+          if [[ ! -f dist/client/_shell.html ]]; then
+            echo "::error::dist/client/_shell.html missing — prerender failed"
+            exit 1
+          fi
+          cp dist/client/_shell.html dist/client/index.html
+          if [[ ! -f dist/client/index.html ]]; then
+            echo "::error::dist/client/index.html was not created"
+            exit 1
+          fi
+          BASE="/${{ github.event.repository.name }}/"
+          if ! grep -q "${BASE}assets/" dist/client/index.html; then
+            echo "::error::index.html does not reference base path ${BASE}"
+            grep -oE '(src|href)=\"[^\"]+\"' dist/client/index.html | head -n 5
+            exit 1
+          fi
+          echo "✓ index.html exists and references base path ${BASE}"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/client
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

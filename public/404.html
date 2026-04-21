@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>WGBIBA — Loading…</title>
+    <meta name="robots" content="noindex" />
+    <style>
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex; align-items: center; justify-content: center;
+        font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+        color: #0f1b2d; background: #f6f8fb;
+      }
+      .box { text-align: center; padding: 24px; }
+      .dot { display:inline-block; width:8px; height:8px; border-radius:50%;
+             background:#1d4ed8; animation: pulse 1s infinite ease-in-out; }
+      @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+    </style>
+    <!--
+      GitHub Pages SPA fallback.
+
+      When a deep link like /wgbiba/dashboard is hit on GitHub Pages, the
+      static host returns this 404 page because no file exists at that path.
+      We capture the original location, redirect to the app entry, and the
+      app then restores the URL via history.replaceState.
+
+      This works for any base path — including the project page subpath
+      `/<repo>/` and the user/organization root.
+    -->
+    <script>
+      (function () {
+        try {
+          // Detect GitHub Pages project subpath: /<repo>/...
+          // For user/organization sites and custom domains, base is "/".
+          var path = window.location.pathname;
+          var search = window.location.search;
+          var hash = window.location.hash;
+
+          // Heuristic: if we're under github.io and the URL has at least one
+          // segment, treat the first segment as the repo base.
+          var host = window.location.hostname;
+          var base = "/";
+          if (/\.github\.io$/i.test(host)) {
+            var first = path.split("/").filter(Boolean)[0];
+            if (first) base = "/" + first + "/";
+          }
+
+          // Persist the original path so the SPA can restore it on boot.
+          var redirectPath =
+            path.replace(base.replace(/\/$/, ""), "") || "/";
+          if (!redirectPath.startsWith("/")) redirectPath = "/" + redirectPath;
+          // Skip storing /index.html as a "real" target — it just means root.
+          if (redirectPath === "/index.html") redirectPath = "/";
+
+          sessionStorage.setItem(
+            "spa-redirect",
+            JSON.stringify({ path: redirectPath, search: search, hash: hash })
+          );
+
+          window.location.replace(base);
+        } catch (e) {
+          window.location.replace("/");
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="box">
+      <span class="dot"></span> &nbsp;Redirecting to the app…
+      <noscript>
+        <p>
+          JavaScript is required. <a href="/">Go to the homepage</a>.
+        </p>
+      </noscript>
+    </div>
+  </body>
+</html>

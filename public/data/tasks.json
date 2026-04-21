@@ -1,0 +1,47 @@
+[
+  {
+    "title": "Assignment 1 — Optimization Foundations",
+    "description": "Decision variables, objective, constraints. LP formulations: 0/1 Multi-Knapsack, Set Covering, Max Independent Set.",
+    "tag": "Optimization",
+    "date": "2025-04-15",
+    "links": [
+      { "label": "Task PDF", "url": "#" }
+    ]
+  },
+  {
+    "title": "Assignment 2 — LP / IP / MILP Modeling",
+    "description": "Binary & integer vars, logical constraints (if-then, either-or, k-of-n), Big-M, linearizing min/max and piecewise-linear functions.",
+    "tag": "Optimization",
+    "date": "2025-04-22",
+    "links": [
+      { "label": "Task PDF", "url": "#" }
+    ]
+  },
+  {
+    "title": "Assignment 3 — Bounds & Branch-and-Bound",
+    "description": "Primal/dual bounds, LP relaxation, duality, complementary slackness, Lagrangian relaxation, B&B pseudocode for max problems.",
+    "tag": "Optimization",
+    "date": "2025-05-02",
+    "links": [
+      { "label": "Task PDF", "url": "#" }
+    ]
+  },
+  {
+    "title": "Assignment 4 — Exact Combinatorial Algorithms",
+    "description": "Brute force, DP for 0/1 knapsack, B&B on 2D IP, Constraint Programming, Benders & Dantzig–Wolfe, Branch-and-Cut/Price.",
+    "tag": "Optimization",
+    "date": "2025-05-12",
+    "links": [
+      { "label": "Task PDF", "url": "#" }
+    ]
+  },
+  {
+    "title": "Assignment 5 — Heuristics & Metaheuristics",
+    "description": "Approximation ratios, PTAS/FPTAS, 2-approx Vertex Cover, Christofides TSP, local search, SA, GA, Tabu, ACO, PSO, GRASP, VNS, ILS.",
+    "tag": "Optimization",
+    "date": "2025-05-20",
+    "links": [
+      { "label": "Task PDF", "url": "#" }
+    ]
+  }
+]

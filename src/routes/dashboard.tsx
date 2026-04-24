@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { assetUrl } from "@/lib/data";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -38,10 +39,114 @@ type Project = {
   github?: string;
   demo?: string;
 };
+type Research = {
+  title: string;
+  abstract?: string;
+  type?: string;
+  year?: string;
+  link?: string;
+};
+const DASHBOARD_PASSWORD = "1234";
+const DASHBOARD_AUTH_KEY = "wgbiba.dashboard-auth";
 
-/* ---------------- Page ---------------- */
+function DashboardGate({ children }: { children: React.ReactNode }) {
+  const [unlocked, setUnlocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem(DASHBOARD_AUTH_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  if (unlocked) return <>{children}</>;
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pw === DASHBOARD_PASSWORD) {
+      try {
+        sessionStorage.setItem(DASHBOARD_AUTH_KEY, "1");
+      } catch {
+        // ignore
+      }
+      setUnlocked(true);
+      setError(null);
+    } else {
+      setError("Incorrect password.");
+    }
+  };
+
+  return (
+    <main
+      id="main"
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        padding: "24px",
+      }}
+    >
+      <form
+        onSubmit={onSubmit}
+        className="form"
+        aria-label="Dashboard password"
+        style={{
+          maxWidth: 360,
+          width: "100%",
+          padding: 24,
+          border: "1px solid var(--c-border)",
+          borderRadius: 12,
+          background: "#fff",
+        }}
+      >
+        <h1 style={{ marginTop: 0, fontSize: "1.2rem" }}>Dashboard locked 🔒</h1>
+        <p className="muted small" style={{ marginTop: 0 }}>
+          Enter the password to access the Content Dashboard.
+        </p>
+        <div className="field">
+          <label htmlFor="dash-pw">Password</label>
+          <input
+            id="dash-pw"
+            type="password"
+            value={pw}
+            autoFocus
+            onChange={(e) => {
+              setPw(e.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="••••"
+          />
+        </div>
+        {error && (
+          <p className="kb-chat-error" role="alert" style={{ marginTop: 8 }}>
+            {error}
+          </p>
+        )}
+        <div className="form-actions" style={{ marginTop: 12 }}>
+          <button type="submit" className="btn btn-primary">
+            Unlock
+          </button>
+          <Link to="/" search={{ view: "full" }} className="btn btn-outline">
+            ← Back to home
+          </Link>
+        </div>
+      </form>
+    </main>
+  );
+}
+
 function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<"task" | "project">("task");
+  return (
+    <DashboardGate>
+      <DashboardPageInner />
+    </DashboardGate>
+  );
+}
+
+function DashboardPageInner() {
+  const [activeTab, setActiveTab] = useState<"task" | "project" | "research">("task");
 
   return (
     <>
@@ -178,9 +283,30 @@ function DashboardPage() {
               >
                 Add Project
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "research"}
+                aria-controls="panel-research"
+                id="tab-research"
+                className={`tab${activeTab === "research" ? " active" : ""}`}
+                onClick={() => setActiveTab("research")}
+              >
+                Add Research
+              </button>
             </div>
 
-            {activeTab === "task" ? <TaskDashboard /> : <ProjectDashboard />}
+            {activeTab === "task" && <TaskDashboard />}
+            {activeTab === "project" && <ProjectDashboard />}
+            {activeTab === "research" &&
+              (typeof ResearchDashboard === "function" ? (
+                <ResearchDashboard />
+              ) : (
+                <p className="kb-chat-error">
+                  ResearchDashboard component failed to load. Please restart the
+                  dev server (see DEV-CHECKLIST.md).
+                </p>
+              ))}
           </div>
         </section>
       </main>
@@ -597,6 +723,208 @@ function ProjectDashboard() {
             <pre
               className="code-block"
               aria-label="Generated project JSON"
+            >
+              <code>{json}</code>
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Research card ---------------- */
+function ResearchCard({ research }: { research: Research }) {
+  return (
+    <article className="card" aria-label={research.title || "Research"}>
+      <div className="meta">
+        {research.type && <span className="tag">{research.type}</span>}
+        {research.year && <span>{research.year}</span>}
+      </div>
+      <h3>{research.title || "Untitled research"}</h3>
+      <p className="muted small">{research.abstract || ""}</p>
+      {research.link && (
+        <div className="card-links">
+          <a href={research.link} target="_blank" rel="noopener noreferrer">
+            View paper →
+          </a>
+        </div>
+      )}
+    </article>
+  );
+}
+
+/* ---------------- Research Dashboard ---------------- */
+function ResearchDashboard() {
+  const [form, setForm] = useState({
+    title: "",
+    abstract: "",
+    type: "",
+    year: "",
+    link: "",
+  });
+  const [json, setJson] = useState<string>("// JSON will appear here");
+  const jsonRef = useRef<string>("// JSON will appear here");
+  jsonRef.current = json;
+
+  // Dev probe: log the research data source so it's obvious whether the
+  // Research tab is wired to the expected /data/research.json file.
+  useEffect(() => {
+    const url = assetUrl("/data/research.json");
+    // eslint-disable-next-line no-console
+    console.info("[ResearchDashboard] mounted — data source:", url);
+    fetch(url, { cache: "no-store" })
+      .then(async (r) => {
+        const ct = r.headers.get("content-type") || "";
+        let count: number | string = "n/a";
+        if (r.ok && ct.includes("json")) {
+          try {
+            const parsed = (await r.json()) as unknown;
+            count = Array.isArray(parsed) ? parsed.length : "not-array";
+          } catch {
+            count = "parse-error";
+          }
+        }
+        // eslint-disable-next-line no-console
+        console.info(
+          `[ResearchDashboard] fetch ${url} — status=${r.status} content-type="${ct}" items=${count}`,
+        );
+      })
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn(`[ResearchDashboard] fetch ${url} failed:`, e);
+      });
+  }, []);
+
+  const researchObj: Research = useMemo(
+    () => ({
+      title: form.title,
+      abstract: form.abstract,
+      type: form.type,
+      year: form.year,
+      link: form.link,
+    }),
+    [form],
+  );
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setJson(JSON.stringify(researchObj, null, 2));
+  };
+
+  const handleReset = () =>
+    setForm({ title: "", abstract: "", type: "", year: "", link: "" });
+
+  return (
+    <div
+      className="dash-panel active"
+      id="panel-research"
+      role="tabpanel"
+      aria-labelledby="tab-research"
+    >
+      <div className="dash-grid">
+        <form
+          className="form"
+          onSubmit={handleSubmit}
+          aria-label="New research form"
+        >
+          <div className="field">
+            <label htmlFor="res-title">Title</label>
+            <input
+              id="res-title"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              placeholder="Paper title"
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="res-abstract">Abstract</label>
+            <textarea
+              id="res-abstract"
+              name="abstract"
+              rows={4}
+              value={form.abstract}
+              onChange={handleChange}
+              placeholder="Brief summary of the research question, methodology, and key findings..."
+            />
+          </div>
+          <div className="row">
+            <div className="field">
+              <label htmlFor="res-type">Type</label>
+              <input
+                id="res-type"
+                name="type"
+                value={form.type}
+                onChange={handleChange}
+                placeholder="Journal Paper / Conference / Thesis"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="res-year">Year</label>
+              <input
+                id="res-year"
+                name="year"
+                value={form.year}
+                onChange={handleChange}
+                placeholder="2025"
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="res-link">Link</label>
+            <input
+              id="res-link"
+              type="url"
+              name="link"
+              value={form.link}
+              onChange={handleChange}
+              placeholder="https://example.com/your-paper"
+            />
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary">
+              Generate JSON
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={handleReset}
+            >
+              Reset
+            </button>
+          </div>
+        </form>
+
+        <div className="dash-preview">
+          <div>
+            <h4>Live Preview</h4>
+            <div className="preview-area">
+              {researchObj.title ? (
+                <ResearchCard research={researchObj} />
+              ) : (
+                <p className="muted small">
+                  Fill in the form to preview the research card.
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="json-head">
+              <h4>Generated JSON</h4>
+              <CopyButton
+                getText={() => jsonRef.current}
+                label="research JSON"
+              />
+            </div>
+            <pre
+              className="code-block"
+              aria-label="Generated research JSON"
             >
               <code>{json}</code>
             </pre>

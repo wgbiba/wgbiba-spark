@@ -211,14 +211,18 @@ function Index() {
                   <span className="nav-num" aria-hidden="true">04</span>
                   <span>{t.nav.research}</span>
                 </a>
-                <Link to="/dashboard" onClick={closeNav}>
+                <Link to="/knowledge" search={{}} onClick={closeNav}>
                   <span className="nav-num" aria-hidden="true">05</span>
+                  <span>Knowledge</span>
+                </Link>
+                <Link to="/dashboard" onClick={closeNav}>
+                  <span className="nav-num" aria-hidden="true">06</span>
                   <span>{t.nav.dashboard}</span>
                 </Link>
               </>
             )}
             <a href="#contact" onClick={closeNav}>
-              <span className="nav-num" aria-hidden="true">{isLanding ? "02" : "06"}</span>
+              <span className="nav-num" aria-hidden="true">{isLanding ? "02" : "07"}</span>
               <span>{t.nav.contact}</span>
             </a>
             <a
@@ -364,7 +368,7 @@ function Index() {
                     ))}
                   </div>
                 )}
-                <div className="grid grid-3" aria-live="polite" aria-busy={tasks.status === "loading"}>
+                <div className="grid grid-list" aria-live="polite" aria-busy={tasks.status === "loading"}>
                   <DataState
                     state={tasks}
                     empty="No tasks have been published yet."
@@ -385,7 +389,7 @@ function Index() {
                   <h2 id="projects-title">{t.projects.title}</h2>
                   <p className="muted">{t.projects.intro}</p>
                 </div>
-                <div className="grid grid-3" aria-live="polite" aria-busy={projects.status === "loading"}>
+                <div className="grid grid-list" aria-live="polite" aria-busy={projects.status === "loading"}>
                   <DataState
                     state={projects}
                     empty="No projects available yet."
@@ -404,7 +408,7 @@ function Index() {
                   <h2 id="research-title">{t.research.title}</h2>
                   <p className="muted">{t.research.intro}</p>
                 </div>
-                <div className="grid grid-2" aria-live="polite" aria-busy={research.status === "loading"}>
+                <div className="grid grid-list" aria-live="polite" aria-busy={research.status === "loading"}>
                   <DataState
                     state={research}
                     empty="No research entries yet."
@@ -591,7 +595,7 @@ function DataState<T, U>({
 /* ---------------- Card components ---------------- */
 function TaskCard({ task }: { task: Task }) {
   return (
-    <article className="card reveal" aria-label={task.title || "Task"}>
+    <article className="card card-compact reveal" aria-label={task.title || "Task"}>
       <div className="meta">
         {task.tag && <span className="tag">{task.tag}</span>}
         {task.date && <span>{task.date}</span>}
@@ -619,7 +623,7 @@ function TaskCard({ task }: { task: Task }) {
 
 function ProjectCard({ project }: { project: Project }) {
   return (
-    <article className="card reveal" aria-label={project.title || "Project"}>
+    <article className="card card-compact reveal" aria-label={project.title || "Project"}>
       <h3>{project.title || "Untitled project"}</h3>
       <p className="muted small">{project.description || ""}</p>
       {project.stack && project.stack.length > 0 && (
@@ -657,7 +661,7 @@ function ProjectCard({ project }: { project: Project }) {
 
 function ResearchCard({ item }: { item: Research }) {
   return (
-    <article className="card reveal" aria-label={item.title || "Research item"}>
+    <article className="card card-compact reveal" aria-label={item.title || "Research item"}>
       <div className="meta">
         {item.type && <span className="tag">{item.type}</span>}
         {item.year && <span>{item.year}</span>}

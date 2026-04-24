@@ -10,6 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResponsiveCheckRouteImport } from './routes/responsive-check'
+import { Route as ReferenceRouteImport } from './routes/reference'
+import { Route as KnowledgeFeedbackRouteImport } from './routes/knowledge-feedback'
+import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as DebugRouteImport } from './routes/debug'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +20,21 @@ import { Route as IndexRouteImport } from './routes/index'
 const ResponsiveCheckRoute = ResponsiveCheckRouteImport.update({
   id: '/responsive-check',
   path: '/responsive-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReferenceRoute = ReferenceRouteImport.update({
+  id: '/reference',
+  path: '/reference',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KnowledgeFeedbackRoute = KnowledgeFeedbackRouteImport.update({
+  id: '/knowledge-feedback',
+  path: '/knowledge-feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KnowledgeRoute = KnowledgeRouteImport.update({
+  id: '/knowledge',
+  path: '/knowledge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DebugRoute = DebugRouteImport.update({
@@ -39,12 +57,18 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/debug': typeof DebugRoute
+  '/knowledge': typeof KnowledgeRoute
+  '/knowledge-feedback': typeof KnowledgeFeedbackRoute
+  '/reference': typeof ReferenceRoute
   '/responsive-check': typeof ResponsiveCheckRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/debug': typeof DebugRoute
+  '/knowledge': typeof KnowledgeRoute
+  '/knowledge-feedback': typeof KnowledgeFeedbackRoute
+  '/reference': typeof ReferenceRoute
   '/responsive-check': typeof ResponsiveCheckRoute
 }
 export interface FileRoutesById {
@@ -52,20 +76,48 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/dashboard': typeof DashboardRoute
   '/debug': typeof DebugRoute
+  '/knowledge': typeof KnowledgeRoute
+  '/knowledge-feedback': typeof KnowledgeFeedbackRoute
+  '/reference': typeof ReferenceRoute
   '/responsive-check': typeof ResponsiveCheckRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/debug' | '/responsive-check'
+  fullPaths:
+    | '/'
+    | '/dashboard'
+    | '/debug'
+    | '/knowledge'
+    | '/knowledge-feedback'
+    | '/reference'
+    | '/responsive-check'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/debug' | '/responsive-check'
-  id: '__root__' | '/' | '/dashboard' | '/debug' | '/responsive-check'
+  to:
+    | '/'
+    | '/dashboard'
+    | '/debug'
+    | '/knowledge'
+    | '/knowledge-feedback'
+    | '/reference'
+    | '/responsive-check'
+  id:
+    | '__root__'
+    | '/'
+    | '/dashboard'
+    | '/debug'
+    | '/knowledge'
+    | '/knowledge-feedback'
+    | '/reference'
+    | '/responsive-check'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DashboardRoute: typeof DashboardRoute
   DebugRoute: typeof DebugRoute
+  KnowledgeRoute: typeof KnowledgeRoute
+  KnowledgeFeedbackRoute: typeof KnowledgeFeedbackRoute
+  ReferenceRoute: typeof ReferenceRoute
   ResponsiveCheckRoute: typeof ResponsiveCheckRoute
 }
 
@@ -76,6 +128,27 @@ declare module '@tanstack/react-router' {
       path: '/responsive-check'
       fullPath: '/responsive-check'
       preLoaderRoute: typeof ResponsiveCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reference': {
+      id: '/reference'
+      path: '/reference'
+      fullPath: '/reference'
+      preLoaderRoute: typeof ReferenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/knowledge-feedback': {
+      id: '/knowledge-feedback'
+      path: '/knowledge-feedback'
+      fullPath: '/knowledge-feedback'
+      preLoaderRoute: typeof KnowledgeFeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/knowledge': {
+      id: '/knowledge'
+      path: '/knowledge'
+      fullPath: '/knowledge'
+      preLoaderRoute: typeof KnowledgeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/debug': {
@@ -106,17 +179,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DashboardRoute: DashboardRoute,
   DebugRoute: DebugRoute,
+  KnowledgeRoute: KnowledgeRoute,
+  KnowledgeFeedbackRoute: KnowledgeFeedbackRoute,
+  ReferenceRoute: ReferenceRoute,
   ResponsiveCheckRoute: ResponsiveCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

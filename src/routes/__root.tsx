@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 
 import appCss from "../styles.css?url";
 import { SpaRedirectHandler } from "@/components/SpaRedirectHandler";
+import { ChatWidget } from "@/components/ChatWidget";
 
 function NotFoundComponent() {
   return (
@@ -85,6 +86,7 @@ function RootComponent() {
     <>
       <SpaRedirectHandler />
       <Outlet />
+      <ChatWidget />
     </>
   );
 }

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResponsiveCheckRouteImport } from './routes/responsive-check'
 import { Route as ReferenceRouteImport } from './routes/reference'
+import { Route as OptimizationMethodsRouteImport } from './routes/optimization-methods'
 import { Route as KnowledgeFeedbackRouteImport } from './routes/knowledge-feedback'
 import { Route as KnowledgeRouteImport } from './routes/knowledge'
 import { Route as DebugRouteImport } from './routes/debug'
@@ -25,6 +26,11 @@ const ResponsiveCheckRoute = ResponsiveCheckRouteImport.update({
 const ReferenceRoute = ReferenceRouteImport.update({
   id: '/reference',
   path: '/reference',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OptimizationMethodsRoute = OptimizationMethodsRouteImport.update({
+  id: '/optimization-methods',
+  path: '/optimization-methods',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KnowledgeFeedbackRoute = KnowledgeFeedbackRouteImport.update({
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/debug': typeof DebugRoute
   '/knowledge': typeof KnowledgeRoute
   '/knowledge-feedback': typeof KnowledgeFeedbackRoute
+  '/optimization-methods': typeof OptimizationMethodsRoute
   '/reference': typeof ReferenceRoute
   '/responsive-check': typeof ResponsiveCheckRoute
 }
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/debug': typeof DebugRoute
   '/knowledge': typeof KnowledgeRoute
   '/knowledge-feedback': typeof KnowledgeFeedbackRoute
+  '/optimization-methods': typeof OptimizationMethodsRoute
   '/reference': typeof ReferenceRoute
   '/responsive-check': typeof ResponsiveCheckRoute
 }
@@ -78,6 +86,7 @@ export interface FileRoutesById {
   '/debug': typeof DebugRoute
   '/knowledge': typeof KnowledgeRoute
   '/knowledge-feedback': typeof KnowledgeFeedbackRoute
+  '/optimization-methods': typeof OptimizationMethodsRoute
   '/reference': typeof ReferenceRoute
   '/responsive-check': typeof ResponsiveCheckRoute
 }
@@ -89,6 +98,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/knowledge'
     | '/knowledge-feedback'
+    | '/optimization-methods'
     | '/reference'
     | '/responsive-check'
   fileRoutesByTo: FileRoutesByTo
@@ -98,6 +108,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/knowledge'
     | '/knowledge-feedback'
+    | '/optimization-methods'
     | '/reference'
     | '/responsive-check'
   id:
@@ -107,6 +118,7 @@ export interface FileRouteTypes {
     | '/debug'
     | '/knowledge'
     | '/knowledge-feedback'
+    | '/optimization-methods'
     | '/reference'
     | '/responsive-check'
   fileRoutesById: FileRoutesById
@@ -117,6 +129,7 @@ export interface RootRouteChildren {
   DebugRoute: typeof DebugRoute
   KnowledgeRoute: typeof KnowledgeRoute
   KnowledgeFeedbackRoute: typeof KnowledgeFeedbackRoute
+  OptimizationMethodsRoute: typeof OptimizationMethodsRoute
   ReferenceRoute: typeof ReferenceRoute
   ResponsiveCheckRoute: typeof ResponsiveCheckRoute
 }
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/reference'
       fullPath: '/reference'
       preLoaderRoute: typeof ReferenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/optimization-methods': {
+      id: '/optimization-methods'
+      path: '/optimization-methods'
+      fullPath: '/optimization-methods'
+      preLoaderRoute: typeof OptimizationMethodsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/knowledge-feedback': {
@@ -181,9 +201,19 @@ const rootRouteChildren: RootRouteChildren = {
   DebugRoute: DebugRoute,
   KnowledgeRoute: KnowledgeRoute,
   KnowledgeFeedbackRoute: KnowledgeFeedbackRoute,
+  OptimizationMethodsRoute: OptimizationMethodsRoute,
   ReferenceRoute: ReferenceRoute,
   ResponsiveCheckRoute: ResponsiveCheckRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

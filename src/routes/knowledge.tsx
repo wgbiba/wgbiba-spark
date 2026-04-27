@@ -9,6 +9,7 @@ import {
   type QA,
   type Topic,
 } from "@/lib/knowledge";
+import { useMergedCategories } from "@/lib/kb-overrides";
 import { CodeBlock } from "@/components/CodeBlock";
 import { MermaidDiagram } from "@/components/MermaidDiagram";
 import { DiagramSwitcher } from "@/components/DiagramSwitcher";
@@ -16,7 +17,45 @@ import { DiagramSwitcher } from "@/components/DiagramSwitcher";
 const BOOKMARK_KEY = "kb:bookmarks:v1";
 const FEEDBACK_KEY = "kb:feedback:v1";
 
-const ASSIGNMENT_OPTIONS: Assignment[] = ["P1", "P2", "P3", "P4", "P5", "Book2"];
+const ASSIGNMENT_OPTIONS: Assignment[] = [
+  "P1",
+  "P2",
+  "P3",
+  "P4",
+  "P5",
+  "Book1",
+  "Book2",
+  "Book3",
+  "Book4",
+  "Book6",
+];
+
+const SOURCE_LABELS: Record<Assignment, string> = {
+  P1: "Assignment P1",
+  P2: "Assignment P2",
+  P3: "Assignment P3",
+  P4: "Assignment P4",
+  P5: "Assignment P5",
+  Book1: "Rao — Engineering Optimization",
+  Book2: "Iqbal — Fundamental Eng. Optimization",
+  Book3: "Parkinson et al. — Optimization Methods for Eng. Design",
+  Book4: "Nocedal & Wright — Numerical Optimization",
+  Book6: "Bonnans et al. — Numerical Optimization (T&P)",
+};
+
+/** Short labels used in inline citation chips below each answer. */
+const SOURCE_SHORT: Record<Assignment, string> = {
+  P1: "P1",
+  P2: "P2",
+  P3: "P3",
+  P4: "P4",
+  P5: "P5",
+  Book1: "Rao",
+  Book2: "Iqbal",
+  Book3: "Parkinson",
+  Book4: "Nocedal & Wright",
+  Book6: "Bonnans et al.",
+};
 const DIFFICULTY_OPTIONS: Difficulty[] = ["intro", "intermediate", "advanced"];
 
 /** Current export schema version. Bump when the on-disk shape changes. */
@@ -222,8 +261,14 @@ function KnowledgePage() {
   const [query, setQuery] = useState(q ?? "");
   useEffect(() => setQuery(q ?? ""), [q]);
 
+  // Merge built-in KB with the user's local edits/adds/deletes from the
+  // dashboard editor. Falls back to the built-in tree on first SSR pass.
+  const mergedCategories = useMergedCategories();
+  const categories: Category[] =
+    mergedCategories.length > 0 ? mergedCategories : KB_CATEGORIES;
+
   const activeCategory: Category =
-    KB_CATEGORIES.find((c) => c.id === cat) ?? KB_CATEGORIES[0];
+    categories.find((c) => c.id === cat) ?? categories[0];
   const activeTopic: Topic =
     activeCategory.topics.find((t) => t.id === topic) ?? activeCategory.topics[0];
 
@@ -240,8 +285,8 @@ function KnowledgePage() {
   );
   const hasFacet = !!(facets.categoryId || facets.assignment || facets.difficulty);
   const searchResults = useMemo(
-    () => (q || hasFacet ? searchKB(q ?? "", facets) : []),
-    [q, facets, hasFacet],
+    () => (q || hasFacet ? searchKB(q ?? "", facets, categories) : []),
+    [q, facets, hasFacet, categories],
   );
 
   const submitSearch = (value: string) => {
@@ -272,7 +317,7 @@ function KnowledgePage() {
   // Bookmarks list
   const allBookmarkedQAs = useMemo(() => {
     const out: Array<{ category: Category; topic: Topic; qa: QA }> = [];
-    for (const c of KB_CATEGORIES) {
+    for (const c of categories) {
       for (const t of c.topics) {
         for (const qa of t.qa) {
           const id = `${c.id}/${t.id}/${qa.id}`;
@@ -282,7 +327,7 @@ function KnowledgePage() {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookmarks.all]);
+  }, [bookmarks.all, categories]);
 
   // ----- bookmark export/import -----
   const fileRef = useRef<HTMLInputElement>(null);
@@ -313,10 +358,10 @@ function KnowledgePage() {
   // resolve to a question (e.g. the curriculum changed since the export).
   const knownIds = useMemo(() => {
     const s = new Set<string>();
-    for (const c of KB_CATEGORIES)
+    for (const c of categories)
       for (const t of c.topics) for (const qa of t.qa) s.add(`${c.id}/${t.id}/${qa.id}`);
     return s;
-  }, []);
+  }, [categories]);
 
   const importBookmarks = async (file: File, mode: "merge" | "replace") => {
     setImportMsg(null);
@@ -410,7 +455,7 @@ function KnowledgePage() {
             onChange={(e) => setFacet({ fc: e.target.value || undefined })}
           >
             <option value="">All categories</option>
-            {KB_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
               </option>
@@ -428,7 +473,7 @@ function KnowledgePage() {
             <option value="">All sources</option>
             {ASSIGNMENT_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
-                {opt === "Book2" ? "Reference" : `Assignment ${opt}`}
+                {SOURCE_LABELS[opt]}
               </option>
             ))}
           </select>
@@ -467,7 +512,7 @@ function KnowledgePage() {
         {/* Sidebar */}
         <aside className="kb-sidebar">
           <nav aria-label="Topic categories">
-            {KB_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <div key={c.id} className="kb-cat">
                 <Link
                   to="/knowledge"
@@ -669,7 +714,7 @@ function KnowledgePage() {
                     <span className="kb-chip">
                       <span className="kb-chip-key">Category</span>
                       <span className="kb-chip-val">
-                        {KB_CATEGORIES.find((c) => c.id === fc)?.title ?? fc}
+                        {categories.find((c) => c.id === fc)?.title ?? fc}
                       </span>
                       <button
                         type="button"
@@ -800,9 +845,35 @@ function KnowledgePage() {
                             <MermaidDiagram code={qa.diagram.mermaid} title={qa.diagram.title} />
                           ) : null}
 
+                          {qa.citations && qa.citations.length > 0 && (
+                            <aside
+                              className="kb-citations"
+                              aria-label="Inline references for this answer"
+                            >
+                              <span className="kb-citations-label">Sources</span>
+                              <ul>
+                                {qa.citations.map((c, idx) => (
+                                  <li
+                                    key={`${c.source}-${c.locator}-${idx}`}
+                                    className="kb-citation"
+                                    title={SOURCE_LABELS[c.source]}
+                                  >
+                                    <span className="kb-citation-src">
+                                      {SOURCE_SHORT[c.source]}
+                                    </span>
+                                    <span className="kb-citation-loc">{c.locator}</span>
+                                    {c.note && (
+                                      <span className="kb-citation-note">— {c.note}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            </aside>
+                          )}
+
                           {qa.deepDive && (
                             <aside className="kb-deepdive">
-                              <h4>Deep dive — Rao, Engineering Optimization</h4>
+                              <h4>Deep dive — reference texts</h4>
                               <p>{qa.deepDive}</p>
                             </aside>
                           )}
@@ -869,6 +940,23 @@ function KnowledgePage() {
           )}
         </main>
       </div>
+
+      <section className="kb-cta-banner" aria-labelledby="kb-cta-title">
+        <div className="container kb-cta-inner">
+          <div className="kb-cta-text">
+            <h2 id="kb-cta-title">Want the full story on Optimization Methods?</h2>
+            <p>
+              Read our long-form article — a single guided reading from problem
+              formulation through linear, nonlinear, integer, and metaheuristic
+              methods, with sources and citations from the textbooks and recent
+              peer-reviewed surveys.
+            </p>
+          </div>
+          <Link to="/optimization-methods" className="kb-cta-button">
+            Open the article →
+          </Link>
+        </div>
+      </section>
 
       <footer className="kb-footer">
         <div className="container">

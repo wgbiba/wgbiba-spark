@@ -1,6 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { assetUrl } from "@/lib/data";
+import {
+  addQA,
+  clearAllOverrides,
+  deleteQA,
+  editQA,
+  getOverrideStats,
+  resetQA,
+  restoreQA,
+  useKBOverrides,
+  useMergedCategories,
+} from "@/lib/kb-overrides";
+import { KB_CATEGORIES, type Category, type QA, type Topic } from "@/lib/knowledge";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -146,7 +158,9 @@ function DashboardPage() {
 }
 
 function DashboardPageInner() {
-  const [activeTab, setActiveTab] = useState<"task" | "project" | "research">("task");
+  const [activeTab, setActiveTab] = useState<
+    "task" | "project" | "research" | "knowledge"
+  >("task");
 
   return (
     <>
@@ -294,6 +308,17 @@ function DashboardPageInner() {
               >
                 Add Research
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "knowledge"}
+                aria-controls="panel-knowledge"
+                id="tab-knowledge"
+                className={`tab${activeTab === "knowledge" ? " active" : ""}`}
+                onClick={() => setActiveTab("knowledge")}
+              >
+                Edit Knowledge Base
+              </button>
             </div>
 
             {activeTab === "task" && <TaskDashboard />}
@@ -307,6 +332,7 @@ function DashboardPageInner() {
                   dev server (see DEV-CHECKLIST.md).
                 </p>
               ))}
+            {activeTab === "knowledge" && <KnowledgeDashboard />}
           </div>
         </section>
       </main>
@@ -931,6 +957,447 @@ function ResearchDashboard() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ====================================================================
+   Knowledge Base editor — add / edit / delete Q&A entries
+   Edits persist in localStorage and are merged into the public KB.
+   ==================================================================== */
+
+
+type DraftMode =
+  | { kind: "idle" }
+  | { kind: "new" }
+  | { kind: "edit"; qaId: string };
+
+function KnowledgeDashboard() {
+  const merged = useMergedCategories();
+  const overrides = useKBOverrides();
+  const categories: Category[] = merged.length > 0 ? merged : KB_CATEGORIES;
+
+  const [categoryId, setCategoryId] = useState<string>(categories[0]?.id ?? "");
+  const activeCategory: Category =
+    categories.find((c) => c.id === categoryId) ?? categories[0];
+
+  const [topicId, setTopicId] = useState<string>(
+    activeCategory?.topics[0]?.id ?? "",
+  );
+  // If the chosen topic doesn't exist in the new category, snap to the first one.
+  useEffect(() => {
+    if (!activeCategory) return;
+    if (!activeCategory.topics.some((t) => t.id === topicId)) {
+      setTopicId(activeCategory.topics[0]?.id ?? "");
+    }
+  }, [activeCategory, topicId]);
+
+  const activeTopic: Topic | undefined = activeCategory?.topics.find(
+    (t) => t.id === topicId,
+  );
+
+  // Identify which QAs in this topic are user-touched (edited / added / deleted).
+  const isAdded = (qaId: string): boolean => {
+    const key = `${categoryId}/${topicId}`;
+    return (overrides.adds[key] ?? []).some((qa) => qa.id === qaId);
+  };
+  const isEdited = (qaId: string): boolean =>
+    `${categoryId}/${topicId}/${qaId}` in overrides.edits;
+  const deletedFullIds = useMemo(
+    () => new Set(overrides.deletes),
+    [overrides.deletes],
+  );
+  const deletedHere = useMemo(() => {
+    if (!activeTopic) return [] as QA[];
+    const baseline = KB_CATEGORIES.find((c) => c.id === categoryId)
+      ?.topics.find((t) => t.id === topicId);
+    if (!baseline) return [];
+    return baseline.qa.filter((qa) =>
+      deletedFullIds.has(`${categoryId}/${topicId}/${qa.id}`),
+    );
+  }, [activeTopic, categoryId, topicId, deletedFullIds]);
+
+  const [mode, setMode] = useState<DraftMode>({ kind: "idle" });
+  const [draft, setDraft] = useState({ question: "", answer: "", deepDive: "" });
+  const [flash, setFlash] = useState<string | null>(null);
+
+  const flashMsg = (text: string) => {
+    setFlash(text);
+    window.clearTimeout((flashMsg as unknown as { _t?: number })._t);
+    (flashMsg as unknown as { _t?: number })._t = window.setTimeout(
+      () => setFlash(null),
+      2200,
+    );
+  };
+
+  const startNew = () => {
+    setMode({ kind: "new" });
+    setDraft({ question: "", answer: "", deepDive: "" });
+  };
+
+  const startEdit = (qa: QA) => {
+    setMode({ kind: "edit", qaId: qa.id });
+    setDraft({
+      question: qa.question,
+      answer: qa.answer,
+      deepDive: qa.deepDive ?? "",
+    });
+  };
+
+  const cancel = () => {
+    setMode({ kind: "idle" });
+    setDraft({ question: "", answer: "", deepDive: "" });
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const question = draft.question.trim();
+    const answer = draft.answer.trim();
+    if (!question || !answer) {
+      flashMsg("Question and answer are both required.");
+      return;
+    }
+    if (mode.kind === "new") {
+      addQA(categoryId, topicId, {
+        question,
+        answer,
+        deepDive: draft.deepDive.trim() || undefined,
+      });
+      flashMsg("Added.");
+    } else if (mode.kind === "edit") {
+      editQA(categoryId, topicId, mode.qaId, {
+        question,
+        answer,
+        deepDive: draft.deepDive.trim(),
+      });
+      flashMsg("Saved.");
+    }
+    cancel();
+  };
+
+  const stats = getOverrideStats();
+
+  return (
+    <div
+      className="dash-panel active"
+      id="panel-knowledge"
+      role="tabpanel"
+      aria-labelledby="tab-knowledge"
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 16,
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
+        <div>
+          <p className="muted small" style={{ margin: 0 }}>
+            Edit, add, or delete questions in any topic. Changes are saved in
+            this browser only and merged on top of the built-in knowledge base
+            in real time.
+          </p>
+          <p className="muted small" style={{ margin: "4px 0 0" }}>
+            <strong>{stats.added}</strong> added · <strong>{stats.edited}</strong>{" "}
+            edited · <strong>{stats.deleted}</strong> deleted
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link
+            to="/knowledge"
+            search={{ cat: categoryId, topic: topicId }}
+            className="btn btn-outline btn-small"
+          >
+            ↗ Open in KB
+          </Link>
+          <button
+            type="button"
+            className="btn btn-outline btn-small"
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Reset ALL knowledge-base edits in this browser? The built-in content will be restored.",
+                )
+              ) {
+                clearAllOverrides();
+                cancel();
+                flashMsg("All edits cleared.");
+              }
+            }}
+            disabled={stats.added + stats.edited + stats.deleted === 0}
+          >
+            Reset all edits
+          </button>
+        </div>
+      </div>
+
+      <div className="row" style={{ marginBottom: 18 }}>
+        <div className="field">
+          <label htmlFor="kbed-cat">Category</label>
+          <select
+            id="kbed-cat"
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              cancel();
+            }}
+          >
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="kbed-topic">Topic</label>
+          <select
+            id="kbed-topic"
+            value={topicId}
+            onChange={(e) => {
+              setTopicId(e.target.value);
+              cancel();
+            }}
+          >
+            {(activeCategory?.topics ?? []).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {flash && (
+        <p
+          role="status"
+          style={{
+            background: "var(--c-accent-soft, #eef2ff)",
+            color: "var(--c-accent, #2563eb)",
+            padding: "8px 12px",
+            borderRadius: 8,
+            margin: "0 0 14px",
+            fontSize: ".9rem",
+          }}
+        >
+          {flash}
+        </p>
+      )}
+
+      {/* Editor / new form */}
+      {mode.kind !== "idle" ? (
+        <form
+          className="form"
+          onSubmit={submit}
+          aria-label={mode.kind === "new" ? "Add a Q&A" : "Edit Q&A"}
+          style={{ marginBottom: 22 }}
+        >
+          <div className="field">
+            <label htmlFor="kbed-q">Question</label>
+            <input
+              id="kbed-q"
+              type="text"
+              value={draft.question}
+              onChange={(e) => setDraft((d) => ({ ...d, question: e.target.value }))}
+              maxLength={300}
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="kbed-a">Answer (HTML allowed)</label>
+            <textarea
+              id="kbed-a"
+              rows={8}
+              value={draft.answer}
+              onChange={(e) => setDraft((d) => ({ ...d, answer: e.target.value }))}
+              required
+              placeholder="<p>You can use simple HTML — paragraphs, <strong>bold</strong>, lists, etc.</p>"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="kbed-d">Deep dive (optional)</label>
+            <textarea
+              id="kbed-d"
+              rows={3}
+              value={draft.deepDive}
+              onChange={(e) => setDraft((d) => ({ ...d, deepDive: e.target.value }))}
+              placeholder="Optional extra context shown in the “Deep dive” callout."
+            />
+          </div>
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary">
+              {mode.kind === "new" ? "Add question" : "Save changes"}
+            </button>
+            <button type="button" className="btn btn-outline" onClick={cancel}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={startNew}
+          style={{ marginBottom: 18 }}
+          disabled={!activeTopic}
+        >
+          + Add new question
+        </button>
+      )}
+
+      {/* Existing Q&A list */}
+      {activeTopic && (
+        <ol
+          style={{
+            listStyle: "none",
+            padding: 0,
+            margin: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+          }}
+        >
+          {activeTopic.qa.map((qa) => {
+            const editing =
+              mode.kind === "edit" && mode.qaId === qa.id ? true : false;
+            const added = isAdded(qa.id);
+            const edited = isEdited(qa.id);
+            return (
+              <li
+                key={qa.id}
+                style={{
+                  border: "1px solid var(--c-border, #e5e7eb)",
+                  borderRadius: 10,
+                  padding: "12px 14px",
+                  background: editing ? "var(--c-accent-soft, #eef2ff)" : "#fff",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ minWidth: 0, flex: "1 1 280px" }}>
+                    <p style={{ margin: "0 0 4px", fontWeight: 600 }}>
+                      {qa.question}
+                    </p>
+                    <p
+                      className="muted small"
+                      style={{
+                        margin: 0,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {qa.answer.replace(/<[^>]+>/g, "").slice(0, 200)}
+                    </p>
+                    <div style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {added && <span className="tag">added</span>}
+                      {edited && <span className="tag">edited</span>}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      flexShrink: 0,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-small"
+                      onClick={() => startEdit(qa)}
+                    >
+                      Edit
+                    </button>
+                    {edited && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-small"
+                        onClick={() => {
+                          resetQA(categoryId, topicId, qa.id);
+                          flashMsg("Reverted to original.");
+                        }}
+                      >
+                        Revert
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-small"
+                      style={{ color: "#b91c1c", borderColor: "#fecaca" }}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Delete the question:\n\n“${qa.question}”\n\nYou can restore it later from the deleted list below.`,
+                          )
+                        ) {
+                          deleteQA(categoryId, topicId, qa.id);
+                          if (mode.kind === "edit" && mode.qaId === qa.id) cancel();
+                          flashMsg("Deleted.");
+                        }
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {/* Restorable deletions */}
+      {deletedHere.length > 0 && (
+        <details style={{ marginTop: 22 }}>
+          <summary style={{ cursor: "pointer", fontWeight: 600 }}>
+            Deleted questions in this topic ({deletedHere.length})
+          </summary>
+          <ul style={{ listStyle: "none", padding: 0, marginTop: 10 }}>
+            {deletedHere.map((qa) => (
+              <li
+                key={qa.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "8px 12px",
+                  border: "1px dashed var(--c-border, #e5e7eb)",
+                  borderRadius: 8,
+                  marginBottom: 6,
+                }}
+              >
+                <span className="muted small" style={{ flex: 1 }}>
+                  {qa.question}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-small"
+                  onClick={() => {
+                    restoreQA(categoryId, topicId, qa.id);
+                    flashMsg("Restored.");
+                  }}
+                >
+                  Restore
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
     </div>
   );
 }

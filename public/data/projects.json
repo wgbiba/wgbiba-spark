@@ -1,9 +1,17 @@
 [
   {
-    "title": "Sample Project Title",
-    "description": "Short description of what the project does, the problem it solves, and your role in it.",
-    "stack": ["Python", "FastAPI", "PostgreSQL"],
-    "github": "https://github.com/your-username/your-repo",
-    "demo": "https://your-demo-url.com"
-  }
+  "title": "robo-flow-vision",
+  "description": "Mini-RAWSimO is a comprehensive, browser-based robotic warehouse simulation system inspired by RAWSim-O. It features multi-robot coordination, advanced pathfinding algorithms, collision avoidance, and real-time 2D/3D visualization.",
+  "stack": [
+    "TypeScript",
+    "TeX",
+    "Shell",
+    "JavaScript",
+    "CSS",
+    "Makefile",
+    "Other"
+  ],
+  "github": "https://aminadineh.me/",
+  "demo": "https://aminadineh.me/"
+}
 ]
